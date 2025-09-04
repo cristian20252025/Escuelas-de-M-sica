@@ -1,63 +1,61 @@
 // roles.js
-// Ejecutar en mongosh: mongosh ./roles.js
-const adminDB = db.getSiblingDB('campus_music');
 
-// 1) crear rol administrador (hereda dbOwner)
+// --- Crear Rol de Administrador ---
 db.createRole({
-  role: "administrador_campus",
-  privileges: [],
-  roles: [{ role: "dbOwner", db: "campus_music" }]
-});
-
-// 2) crear rol empleado_sede (permite find/insert/update en colecciones relevantes)
-db.createRole({
-  role: "empleado_sede",
+  role: "rolAdministrador",
   privileges: [
-    { resource: { db: "campus_music", collection: "estudiantes" }, actions: ["find", "update", "insert"] },
-    { resource: { db: "campus_music", collection: "inscripciones" }, actions: ["find", "insert", "update"] },
-    { resource: { db: "campus_music", collection: "reservas_instrumentos" }, actions: ["find", "insert", "update"] },
-    { resource: { db: "campus_music", collection: "cursos" }, actions: ["find"] },
-    { resource: { db: "campus_music", collection: "instrumentos" }, actions: ["find", "update"] }
+    { resource: { db: "campus_music", collection: "" }, actions: ["find", "insert", "update", "remove", "createCollection", "dropCollection", "indexDetails"] },
+    { resource: { db: "campus_music", collection: "usuarios" }, actions: ["find", "insert", "update", "remove"] },
+    { resource: { db: "campus_music", collection: "sedes" }, actions: ["find", "insert", "update", "remove"] },
+    { resource: { db: "campus_music", collection: "profesores" }, actions: ["find", "insert", "update", "remove"] },
+    { resource: { db: "campus_music", collection: "estudiantes" }, actions: ["find", "insert", "update", "remove"] },
+    { resource: { db: "campus_music", collection: "cursos" }, actions: ["find", "insert", "update", "remove"] },
+    { resource: { db: "campus_music", collection: "inscripciones" }, actions: ["find", "insert", "update", "remove"] },
+    { resource: { db: "campus_music", collection: "instrumentos" }, actions: ["find", "insert", "update", "remove"] },
+    { resource: { db: "campus_music", collection: "reservas_instrumentos" }, actions: ["find", "insert", "update", "remove"] }
   ],
   roles: []
 });
 
-// 3) crear rol estudiante (acceso limitado)
+// --- Crear Rol de Empleado de sede ---
 db.createRole({
-  role: "rol_estudiante",
+  role: "rolEmpleadoSede",
   privileges: [
-    { resource: { db: "campus_music", collection: "cursos" }, actions: ["find"] },
-    { resource: { db: "campus_music", collection: "reservas_instrumentos" }, actions: ["insert", "find"] },
-    { resource: { db: "campus_music", collection: "inscripciones" }, actions: ["find"] }
+    { resource: { db: "campus_music", collection: "usuarios" }, actions: ["find", "update"] },
+    { resource: { db: "campus_music", collection: "sedes" }, actions: ["find", "update"] },
+    { resource: { db: "campus_music", collection: "cursos" }, actions: ["find", "insert", "update"] },
+    { resource: { db: "campus_music", collection: "inscripciones" }, actions: ["find", "insert"] },
+    { resource: { db: "campus_music", collection: "profesores" }, actions: ["find"] },
+    { resource: { db: "campus_music", collection: "estudiantes" }, actions: ["find"] },
+    { resource: { db: "campus_music", collection: "instrumentos" }, actions: ["find"] },
+    { resource: { db: "campus_music", collection: "reservas_instrumentos" }, actions: ["find", "insert"] }
   ],
   roles: []
 });
 
-// 4) Crear usuarios (ejemplo admin y un empleado de sede y un estudiante)
-db.createUser({
-  user: "admin_campus",
-  pwd: "CambiarContraSegura123!", // en producción usar secreto fuerte y vault
-  roles: [ { role: "administrador_campus", db: "campus_music" } ]
+// --- Crear Rol de Estudiante ---
+db.createRole({
+  role: "rolEstudiante",
+  privileges: [
+    { resource: { db: "campus_music", collection: "estudiantes" }, actions: ["find"] },
+    { resource: { db: "campus_music", collection: "inscripciones" }, actions: ["find", "insert"] },
+    { resource: { db: "campus_music", collection: "instrumentos" }, actions: ["find"] },
+    { resource: { db: "campus_music", collection: "reservas_instrumentos" }, actions: ["find", "insert"] }
+  ],
+  roles: []
 });
 
-// Usuario empleado (en la práctica crea usuarios por sede y aplicar vistas o lógica app)
-db.createUser({
-  user: "empleado_bogota",
-  pwd: "EmpleadoPass123!",
-  roles: [ { role: "empleado_sede", db: "campus_music" } ]
-});
+// --- Asignar roles a usuarios existentes ---
+/*
+Ejemplo: si tienes usuarios creados con nombres "adminUser", "empleadoBogota", "estudiante1"
+después de crear los roles, asigna roles así:
+*/
+try {
+  db.grantRolesToUser("adminUser", [{ role: "rolAdministrador", db: "campus_music" }]);
+  db.grantRolesToUser("empleadoBogota", [{ role: "rolEmpleadoSede", db: "campus_music" }]);
+  db.grantRolesToUser("estudiante1", [{ role: "rolEstudiante", db: "campus_music" }]);
+} catch (e) {
+  print("Error asignando roles: " + e);
+}
 
-// Usuario estudiante
-db.createUser({
-  user: "estudiante1",
-  pwd: "EstPass123!",
-  roles: [ { role: "rol_estudiante", db: "campus_music" } ]
-});
-
-// 5) Vistas por sede (para lectura)
-db.createView('vista_cursos_BOG', 'cursos', [
-  { $match: { sede_id: sedeIds ? sedeIds[0] : null } } // en script real reemplazar por ObjectId('...')
-]);
-// NOTA: crear vistas dinámicamente por sede con su ObjectId real y luego
-// otorgar acceso de solo lectura a la vista al usuario de la sede si quieres restringir lectura.
-print('roles.js: roles y usuarios creados (ajusta contraseñas y vistas).');
+// --- Nota: Para crear usuarios y asignar roles, usar createUser() y grantRolesToUser() en tu entorno de administración ---
