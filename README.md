@@ -1,6 +1,3 @@
-Claro, aquí tienes un ejemplo completo y organizado del archivo `README.md` para tu proyecto, que explica cada sección en detalle, incluyendo la justificación técnica, estructura del modelo, poblamiento de datos, roles, transacciones y consultas analíticas.
-
----
 
 # Proyecto: Sistema de Gestión de Escuelas de Música - Campus Music
 
