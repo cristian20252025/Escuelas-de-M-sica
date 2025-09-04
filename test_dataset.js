@@ -1,150 +1,199 @@
 // test_dataset.js
-// Ejecutar en mongosh: mongosh ./test_dataset.js
-const db = db.getSiblingDB('campus_music');
-const { ObjectId } = require('mongodb'); // en mongosh, ObjectId() está disponible; esta línea es informativa
+use('campus_music');
 
-// 1) Sed es (3)
-const sedesDocs = [
-  { codigo: 'BOG', ciudad: 'Bogotá', direccion: 'Cll 100 #10-20', capacidad: 120, cursos_disponibles: [] },
-  { codigo: 'MED', ciudad: 'Medellín', direccion: 'Cr 43 #22-10', capacidad: 90, cursos_disponibles: [] },
-  { codigo: 'CAL', ciudad: 'Cali', direccion: 'Av. 6 #30-50', capacidad: 80, cursos_disponibles: [] }
-];
-const sedesRes = db.sedes.insertMany(sedesDocs);
-const sedeIds = Object.values(sedesRes.insertedIds);
-
-// 2) Profesores (10)
-const profs = [
-  { documento:'1001', nombre:'Ana Gómez', especialidades:['Piano','Teoría'], experiencia_anios:6, contacto:{ email:'ana@cm.com', telefono:'3001110001' } },
-  { documento:'1002', nombre:'Luis Torres', especialidades:['Guitarra','Canto'], experiencia_anios:8, contacto:{ email:'luis@cm.com', telefono:'3001110002' } },
-  { documento:'1003', nombre:'María Li', especialidades:['Violín','Música clásica'], experiencia_anios:10, contacto:{ email:'maria@cm.com', telefono:'3001110003' } },
-  { documento:'1004', nombre:'Carlos Ruiz', especialidades:['Batería','Percusión'], experiencia_anios:5, contacto:{ email:'carlos@cm.com', telefono:'3001110004' } },
-  { documento:'1005', nombre:'Sofía Martínez', especialidades:['Canto','Teatro musical'], experiencia_anios:7, contacto:{ email:'sofia@cm.com', telefono:'3001110005' } },
-  { documento:'1006', nombre:'Diego Herrera', especialidades:['Guitarra','Producción'], experiencia_anios:9, contacto:{ email:'diego@cm.com', telefono:'3001110006' } },
-  { documento:'1007', nombre:'Valeria Peña', especialidades:['Piano','Composición'], experiencia_anios:4, contacto:{ email:'valeria@cm.com', telefono:'3001110007' } },
-  { documento:'1008', nombre:'Andrés Gil', especialidades:['Contrabajo','Jazz'], experiencia_anios:11, contacto:{ email:'andres@cm.com', telefono:'3001110008' } },
-  { documento:'1009', nombre:'Paola Díaz', especialidades:['Teoría','Afinación'], experiencia_anios:3, contacto:{ email:'paola@cm.com', telefono:'3001110009' } },
-  { documento:'1010', nombre:'Marco Peña', especialidades:['Trompeta','Metodología'], experiencia_anios:12, contacto:{ email:'marco@cm.com', telefono:'3001110010' } }
-];
-const profRes = db.profesores.insertMany(profs);
-const profIds = Object.values(profRes.insertedIds);
-
-// 3) Cursos: 5 por sede (total 15)
-const instrumentosEj = ['Piano','Guitarra','Violín','Teoría Musical','Canto'];
-const niveles = ['Básico','Intermedio','Avanzado'];
-const cursos = [];
-for (let i = 0; i < sedeIds.length; i++) {
-  for (let j = 0; j < 5; j++) {
-    const profesorId = profIds[(i*2 + j) % profIds.length];
-    const doc = {
-      codigo: `C-${i}-${j}`,
-      nombre: `${instrumentosEj[j]} ${niveles[j%3]}`,
-      instrumento: instrumentosEj[j],
-      nivel: niveles[j%3],
-      duracion_semanas: 12,
-      cupos_totales: 12,
-      cupos_disponibles: 12,
-      horario: { dias: ['Lunes','Miércoles'], horaInicio: '17:00', horaFin: '19:00' },
-      sede_id: sedeIds[i],
-      profesor_id: profesorId,
-      fechaInicio: new Date('2025-09-01T00:00:00Z'),
-      fechaFin: new Date('2025-12-01T00:00:00Z'),
-      costo: 150000.0,
-      activo: true
-    };
-    cursos.push(doc);
+// --- Poblar sedes ---
+const sedes = [
+  {
+    nombre: "Sede Bogotá",
+    ciudad: "Bogotá",
+    direccion: "Cra 10 # 20-30",
+    telefono: "3101234567",
+    capacidad: 50,
+    activa: true,
+    fechaCreacion: new Date()
+  },
+  {
+    nombre: "Sede Medellín",
+    ciudad: "Medellín",
+    direccion: "Calle 45 # 67-89",
+    telefono: "3012345678",
+    capacidad: 40,
+    activa: true,
+    fechaCreacion: new Date()
+  },
+  {
+    nombre: "Sede Cali",
+    ciudad: "Cali",
+    direccion: "Avenida 5 # 10-20",
+    telefono: "3123456789",
+    capacidad: 35,
+    activa: true,
+    fechaCreacion: new Date()
   }
-}
-const cursoRes = db.cursos.insertMany(cursos);
-const cursoIds = Object.values(cursoRes.insertedIds);
+];
 
-// 4) Actualizar sedes con cursos_disponibles
-for (let i = 0; i < sedeIds.length; i++) {
-  const cursosPorSede = Object.keys(cursoRes.insertedIds)
-    .filter(k => Math.floor(k/5) === i)
-    .map(k => cursoIds[k]);
-  db.sedes.updateOne({ _id: sedeIds[i] }, { $set: { cursos_disponibles: cursosPorSede }});
-}
+const sedeResult = db.sedes.insertMany(sedes);
 
-// 5) Estudiantes (15)
-const nivelesEst = ['Básico','Intermedio','Avanzado'];
-const estudiantes = [];
-for (let i = 1; i <= 15; i++) {
-  estudiantes.push({
-    documento: (2000 + i).toString(),
-    nombre: `Estudiante ${i}`,
-    contacto: { email: `est${i}@mail.com`, telefono: `3100000${100+i}` },
-    nivel: nivelesEst[i % 3],
-    fechaRegistro: new Date()
-  });
-}
-const estRes = db.estudiantes.insertMany(estudiantes);
-const estIds = Object.values(estRes.insertedIds);
+// --- Poblar profesores ---
+const profesores = [
+  { nombre: "Juan Pérez", documento: "123456789", email: "juan.perez@mail.com", telefono: "3001112222", especialidades: ["Piano"], experiencia: 10, sedesAsignadas: [sedeResult.insertedIds["0"]], activo: true, fechaIngreso: new Date() },
+  { nombre: "María Gómez", documento: "987654321", email: "maria.gomez@mail.com", telefono: "3002223333", especialidades: ["Guitarra"], experiencia: 8, sedesAsignadas: [sedeResult.insertedIds["1"]], activo: true, fechaIngreso: new Date() },
+  { nombre: "Carlos Ruiz", documento: "111223333", email: "carlos.ruiz@mail.com", telefono: "3003334444", especialidades: ["Violín"], experiencia: 12, sedesAsignadas: [sedeResult.insertedIds["2"]], activo: true, fechaIngreso: new Date() },
+  { nombre: "Luisa Fernández", documento: "222334444", email: "luisa.fernandez@mail.com", telefono: "3004445555", especialidades: ["Canto"], experiencia: 7, sedesAsignadas: [sedeResult.insertedIds["0"], sedeResult.insertedIds["2"]], activo: true, fechaIngreso: new Date() },
+  { nombre: "Andrés López", documento: "333445555", email: "andres.lopez@mail.com", telefono: "3005556666", especialidades: ["Bateria"], experiencia: 9, sedesAsignadas: [sedeResult.insertedIds["1"]], activo: true, fechaIngreso: new Date() },
+  { nombre: "Sofía Ramírez", documento: "444556666", email: "sofia.ramirez@mail.com", telefono: "3006667777", especialidades: ["Flauta"], experiencia: 6, sedesAsignadas: [sedeResult.insertedIds["2"]], activo: true, fechaIngreso: new Date() },
+  { nombre: "Miguel Torres", documento: "555667777", email: "miguel.torres@mail.com", telefono: "3007778888", especialidades: ["Bajo"], experiencia: 11, sedesAsignadas: [sedeResult.insertedIds["0"]], activo: true, fechaIngreso: new Date() }
+];
 
-// 6) Instrumentos (20)
-const tiposInstr = ['Guitarra','Piano','Violín','Bajo','Saxofón','Batería'];
-const instrumentos = [];
-for (let i = 1; i <= 20; i++) {
-  instrumentos.push({
-    codigo: `I-${i}`,
-    tipo: tiposInstr[i % tiposInstr.length],
-    marca: 'Yamaha',
-    disponible: true,
-    sede_id: sedeIds[i % sedeIds.length],
-    detalles: { serie: `SN${1000+i}` }
-  });
-}
-const instRes = db.instrumentos.insertMany(instrumentos);
-const instIds = Object.values(instRes.insertedIds);
+const profesoresInsert = db.profesores.insertMany(profesores);
 
-// 7) Inscripciones (30) --> generamos hasta 30 asegurando cupo
+// --- Poblar cursos para cada sede ---
+const sedesArray = Object.values(sedeResult.insertedIds);
+const cursos = [
+  // Para sede 0 (Bogotá)
+  {
+    nombre: "Piano Básico",
+    instrumento: "Piano",
+    nivel: "Básico",
+    duracion: 12,
+    cupoMaximo: 10,
+    cuposDisponibles: 10,
+    costo: 200000,
+    horario: { dias: ["Lunes", "Miércoles"], horaInicio: "18:00", horaFin: "20:00" },
+    sede: sedesArray[0],
+    profesor: profesoresInsert.insertedIds[0],
+    fechaInicio: new Date(),
+    fechaFin: new Date(new Date().getTime() + 12 * 7 * 24 * 60 * 60 * 1000),
+    activo: true
+  },
+  {
+    nombre: "Guitarra Intermedia",
+    instrumento: "Guitarra",
+    nivel: "Intermedio",
+    duracion: 12,
+    cupoMaximo: 8,
+    cuposDisponibles: 8,
+    costo: 180000,
+    horario: { dias: ["Martes", "Jueves"], horaInicio: "17:00", horaFin: "19:00" },
+    sede: sedesArray[0],
+    profesor: profesoresInsert.insertedIds[1],
+    fechaInicio: new Date(),
+    fechaFin: new Date(new Date().getTime() + 12 * 7 * 24 * 60 * 60 * 1000),
+    activo: true
+  },
+  // Para sede 1 (Medellín)
+  {
+    nombre: "Violín Avanzado",
+    instrumento: "Violin",
+    nivel: "Avanzado",
+    duracion: 16,
+    cupoMaximo: 6,
+    cuposDisponibles: 6,
+    costo: 250000,
+    horario: { dias: ["Lunes", "Jueves"], horaInicio: "19:00", horaFin: "21:00" },
+    sede: sedesArray[1],
+    profesor: profesoresInsert.insertedIds[2],
+    fechaInicio: new Date(),
+    fechaFin: new Date(new Date().getTime() + 16 * 7 * 24 * 60 * 60 * 1000),
+    activo: true
+  },
+  {
+    nombre: "Canto Básico",
+    instrumento: "Canto",
+    nivel: "Básico",
+    duracion: 10,
+    cupoMaximo: 12,
+    cuposDisponibles: 12,
+    costo: 150000,
+    horario: { dias: ["Miércoles"], horaInicio: "16:00", horaFin: "17:30" },
+    sede: sedesArray[1],
+    profesor: profesoresInsert.insertedIds[3],
+    fechaInicio: new Date(),
+    fechaFin: new Date(new Date().getTime() + 10 * 7 * 24 * 60 * 60 * 1000),
+    activo: true
+  },
+  // Para sede 2 (Cali)
+  {
+    nombre: "Flauta Intermedia",
+    instrumento: "Flauta",
+    nivel: "Intermedio",
+    duracion: 14,
+    cupoMaximo: 7,
+    cuposDisponibles: 7,
+    costo: 220000,
+    horario: { dias: ["Martes", "Jueves"], horaInicio: "17:30", horaFin: "19:30" },
+    sede: sedesArray[2],
+    profesor: profesoresInsert.insertedIds[4],
+    fechaInicio: new Date(),
+    fechaFin: new Date(new Date().getTime() + 14 * 7 * 24 * 60 * 60 * 1000),
+    activo: true
+  }
+];
+
+db.cursos.insertMany(cursos);
+
+// --- Poblar estudiantes ---
+const estudiantes = [
+  { nombre: "Ana Martínez", documento: "4455667788", email: "ana@mail.com", telefono: "3151234567", fechaNacimiento: new Date("2000-05-15"), nivelMusical: "Intermedio", contactoEmergencia: { nombre: "Luis Martinez", telefono: "3159876543", relacion: "Padre" }, activo: true, fechaRegistro: new Date() },
+  { nombre: "Luis Gómez", documento: "5566778899", email: "luis@mail.com", telefono: "3161234567", fechaNacimiento: new Date("1998-02-20"), nivelMusical: "Básico", contactoEmergencia: { nombre: "Maria Gómez", telefono: "3169876543", relacion: "Madre" }, activo: true, fechaRegistro: new Date() },
+  { nombre: "Sofía Castro", documento: "6677889900", email: "sofia@mail.com", telefono: "3171234567", fechaNacimiento: new Date("2002-11-10"), nivelMusical: "Avanzado", contactoEmergencia: { nombre: "Carlos Castro", telefono: "3179876543", relacion: "Hermano" }, activo: true, fechaRegistro: new Date() },
+  { nombre: "Pedro Jiménez", documento: "7788990011", email: "pedro@mail.com", telefono: "3181234567", fechaNacimiento: new Date("1995-07-05"), nivelMusical: "Intermedio", contactoEmergencia: { nombre: "Lucía Jiménez", telefono: "3189876543", relacion: "Madre" }, activo: true, fechaRegistro: new Date() },
+  { nombre: "María López", documento: "8899001122", email: "maria@mail.com", telefono: "3191234567", fechaNacimiento: new Date("2001-03-22"), nivelMusical: "Básico", contactoEmergencia: { nombre: "Juan López", telefono: "3199876543", relacion: "Padre" }, activo: true, fechaRegistro: new Date() },
+  // Agrega más estudiantes si quieres
+];
+
+db.estudiantes.insertMany(estudiantes);
+
+// --- Poblar instrumentos ---
+const instrumentos = [
+  { nombre: "Piano Yamaha U1", tipo: "Piano", marca: "Yamaha", modelo: "U1", numeroSerie: "SN10001", estado: "Disponible", sede: sedesArray[0], fechaAdquisicion: new Date("2018-03-01"), valorComercial: 5000 },
+  { nombre: "Guitarra Fender Stratocaster", tipo: "Guitarra", marca: "Fender", modelo: "Stratocaster", numeroSerie: "SN10002", estado: "Disponible", sede: sedesArray[0], fechaAdquisicion: new Date("2019-07-15"), valorComercial: 1500 },
+  { nombre: "Violin Stradivarius", tipo: "Violin", marca: "Stradivarius", modelo: "ModelX", numeroSerie: "SN10003", estado: "Disponible", sede: sedesArray[1], fechaAdquisicion: new Date("2017-05-20"), valorComercial: 25000 },
+  { nombre: "Bateria Yamaha Stage Custom", tipo: "Bateria", marca: "Yamaha", modelo: "Stage", numeroSerie: "SN10004", estado: "Disponible", sede: sedesArray[1], fechaAdquisicion: new Date("2020-01-10"), valorComercial: 3000 },
+  { nombre: "Flauta Yamaha 20X", tipo: "Flauta", marca: "Yamaha", modelo: "20X", numeroSerie: "SN10005", estado: "Disponible", sede: sedesArray[2], fechaAdquisicion: new Date("2019-11-11"), valorComercial: 800 },
+  { nombre: "Bajo Fender Jazz", tipo: "Bajo", marca: "Fender", modelo: "J Bass", numeroSerie: "SN10006", estado: "Disponible", sede: sedesArray[2], fechaAdquisicion: new Date("2018-09-09"), valorComercial: 1200 },
+  // Agrega más instrumentos si deseas
+];
+
+db.instrumentos.insertMany(instrumentos);
+
+// --- Poblar inscripciones ---
+const estudiantesDocs = db.estudiantes.find().toArray();
+const cursosDocs = db.cursos.find().toArray();
+
 const inscripciones = [];
-let created = 0;
-let attempts = 0;
-while (created < 30 && attempts < 200) {
-  attempts++;
-  const estudianteId = estIds[Math.floor(Math.random()*estIds.length)];
-  const cursoId = cursoIds[Math.floor(Math.random()*cursoIds.length)];
-  const curso = db.cursos.findOne({ _id: cursoId });
-  if (!curso || curso.cupos_disponibles <= 0) continue;
-  // crear inscripción
+for (let i = 0; i < 30; i++) {
+  const est = estudiantesDocs[Math.floor(Math.random() * estudiantesDocs.length)];
+  const curso = cursosDocs[Math.floor(Math.random() * cursosDocs.length)];
   inscripciones.push({
-    estudiante_id: estudianteId,
-    curso_id: cursoId,
-    sede_id: curso.sede_id,
-    profesor_id: curso.profesor_id,
-    fechaInscripcion: new Date(),
+    estudiante: est._id,
+    curso: curso._id,
+    sede: curso.sede,
+    profesor: curso.profesor,
+    fechaInscripcion: new Date(new Date().getTime() - Math.random() * 45 * 24 * 60 * 60 * 1000), // últimos 45 días
     costo: curso.costo,
-    estadoPago: 'Pendiente'
+    estado: "Activa"
   });
-  // reducir cupo (sin transacción porque esto es data seed; para run-time usar transaction)
-  db.cursos.updateOne({ _id: cursoId }, { $inc: { cupos_disponibles: -1 }});
-  created++;
 }
-if (inscripciones.length > 0) db.inscripciones.insertMany(inscripciones);
+db.inscripciones.insertMany(inscripciones);
 
-// 8) Reservas de instrumentos (10)
+// --- Reservas de instrumentos ---
+const estudiantesReservas = estudiantesDocs.slice(0, 10);
+const instrumentosDocs = db.instrumentos.find().toArray();
 const reservas = [];
-for (let r = 0; r < 10; r++) {
-  const estudianteId = estIds[Math.floor(Math.random()*estIds.length)];
-  const instrumentoId = instIds[Math.floor(Math.random()*instIds.length)];
-  reservas.push({
-    instrumento_id: instrumentoId,
-    estudiante_id: estudianteId,
-    fechaReserva: new Date(),
-    fechaFin: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // +7 días
-    estado: 'Activa',
-    notas: ''
-  });
-  // marcar instrumento no disponible
-  db.instrumentos.updateOne({ _id: instrumentoId }, { $set: { disponible: false }});
-}
-if (reservas.length > 0) db.reservas_instrumentos.insertMany(reservas);
 
-print('test_dataset.js: inserciones realizadas:');
-print('sedes:', db.sedes.countDocuments());
-print('profesores:', db.profesores.countDocuments());
-print('cursos:', db.cursos.countDocuments());
-print('estudiantes:', db.estudiantes.countDocuments());
-print('instrumentos:', db.instrumentos.countDocuments());
-print('inscripciones:', db.inscripciones.countDocuments());
-print('reservas:', db.reservas_instrumentos.countDocuments());
+for (let i = 0; i < 10; i++) {
+  const est = estudiantesReservas[Math.floor(Math.random() * estudiantesReservas.length)];
+  const instr = instrumentosDocs[Math.floor(Math.random() * instrumentosDocs.length)];
+  reservas.push({
+    estudiante: est._id,
+    instrumento: instr._id,
+    fechaReserva: new Date(),
+    fechaInicio: new Date(),
+    fechaFin: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // 1 semana
+    estado: "Activa"
+  });
+}
+db.reservas_instrumentos.insertMany(reservas);
+
+print("✅ Datos de prueba extendidos y poblando la base correctamente");
