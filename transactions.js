@@ -1,51 +1,58 @@
 // transactions.js
-// Ejecutar en mongosh: mongosh ./transactions.js
-const conn = db.getMongo();
-const session = conn.startSession();
-const campusDB = session.getDatabase('campus_music');
 
-function inscribir(estudianteId, cursoId) {
-  const opts = { readConcern: { level: "local" }, writeConcern: { w: "majority" } };
-  try {
-    session.startTransaction(opts);
+// Iniciar la sesión para la transacción
+const session = db.getMongo().startSession();
 
-    // 1) Recupera curso en la sesión (opcional)
-    const curso = campusDB.cursos.findOne({ _id: cursoId }, { session });
-    if (!curso) throw new Error('Curso no existe');
+try {
+  // Comenzar la transacción
+  session.startTransaction();
 
-    // 2) Intentar decrementar cupo de forma atómica
-    const upd = campusDB.cursos.updateOne(
-      { _id: cursoId, cupos_disponibles: { $gt: 0 } },
-      { $inc: { cupos_disponibles: -1 } },
-      { session }
-    );
+  // Obtener el contexto de la base de datos en la sesión
+  const dbs = session.getDatabase("campus_music");
 
-    if (upd.matchedCount === 0) {
-      // no cupo disponible
-      throw new Error('No hay cupos disponibles para el curso');
-    }
+  // IDs de ejemplo, reemplaza con IDs reales
+  const estudianteId = ObjectId("ID_ESTUDIANTE");
+  const cursoId = ObjectId("ID_CURSO");
 
-    // 3) Insertar inscripción
-    const ins = {
-      estudiante_id: estudianteId,
-      curso_id: cursoId,
-      sede_id: curso.sede_id,
-      profesor_id: curso.profesor_id,
-      fechaInscripcion: new Date(),
-      costo: curso.costo,
-      estadoPago: 'Pendiente'
-    };
-    campusDB.inscripciones.insertOne(ins, { session });
-
-    // 4) Commit
-    session.commitTransaction();
-    print('Inscripción realizada con éxito.');
-  } catch (err) {
-    print('Error en transacción:', err);
-    try { session.abortTransaction(); } catch (e) { print('Abort fallo:', e); }
-  } finally {
-    session.endSession();
+  // --- Paso 1: Verificar cupos disponibles en el curso ---
+  const curso = dbs.cursos.findOne({ _id: cursoId });
+  if (!curso) {
+    throw new Error("Curso no encontrado");
   }
+  if (curso.cuposDisponibles <= 0) {
+    throw new Error("No hay cupos disponibles en el curso");
+  }
+
+  // --- Paso 2: Insertar la inscripción ---
+  dbs.inscripciones.insertOne({
+    estudiante: estudianteId,
+    curso: cursoId,
+    sede: curso.sede,
+    profesor: curso.profesor,
+    fechaInscripcion: new Date(),
+    costo: curso.costo,
+    estado: "Activa"
+  });
+
+  // --- Paso 3: Actualizar la cantidad de cupos disponibles ---
+  const updateResult = dbs.cursos.updateOne(
+    { _id: cursoId, cuposDisponibles: { $gt: 0 } },
+    { $inc: { cuposDisponibles: -1 } }
+  );
+
+  if (updateResult.modifiedCount === 0) {
+    throw new Error("No se pudo actualizar los cupos, quizás ya no hay disponibles");
+  }
+
+  // --- Paso 4: Confirmar y cerrar la transacción ---
+  session.commitTransaction();
+  print("Inscripción realizada y cupos actualizados correctamente");
+
+} catch (error) {
+  // En caso de error, hacer rollback
+  print("Error en la transacción: " + error.message);
+  session.abortTransaction();
+} finally {
+  // Finalizar la sesión
+  session.endSession();
 }
-
-
